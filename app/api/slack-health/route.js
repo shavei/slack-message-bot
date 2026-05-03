@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSlackBotConfig } from "@/lib/config";
+import { checkDatabase } from "@/lib/messageStore";
 import { slackApi } from "@/lib/slack";
 
 export async function GET() {
@@ -8,17 +9,22 @@ export async function GET() {
   try {
     config = getSlackBotConfig();
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        checks: {
-          environment: { ok: false, error: error.message },
-          slackAuth: { ok: false },
-          channelHistory: { ok: false }
-        }
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      ok: false,
+      checks: {
+        environment: { ok: false, error: error.message },
+        database: { ok: false },
+        slackAuth: { ok: false },
+        channelHistory: { ok: false }
+      }
+    });
+  }
+
+  let database;
+  try {
+    database = await checkDatabase();
+  } catch (error) {
+    database = { ok: false, error: error.message };
   }
 
   const auth = await slackApi("auth.test", config.slackBotToken);
@@ -27,6 +33,7 @@ export async function GET() {
       ok: false,
       checks: {
         environment: { ok: true },
+        database,
         slackAuth: { ok: false, error: auth.error || "slack_auth_failed" },
         channelHistory: { ok: false }
       }
@@ -42,9 +49,10 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    ok: Boolean(history.ok),
+    ok: Boolean(database.ok && history.ok),
     checks: {
       environment: { ok: true },
+      database,
       slackAuth: {
         ok: true,
         team: auth.team,
