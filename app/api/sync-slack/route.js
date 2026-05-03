@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSlackBotConfig } from "@/lib/config";
-import { findExistingTimestamps, insertMessages } from "@/lib/messageStore";
+import { findExistingTimestamps, insertMessages, refreshIssueCandidates } from "@/lib/messageStore";
 import { slackApi } from "@/lib/slack";
 
 export async function POST() {
@@ -30,11 +30,14 @@ export async function POST() {
     }));
 
   await insertMessages(newMessages);
+  const issues = await refreshIssueCandidates(config.slackChannelId);
 
   return NextResponse.json({
     scanned: messages.length,
     inserted: newMessages.length,
     skipped: messages.length - newMessages.length,
+    issuesCreated: issues.created,
+    issuesTotal: issues.total,
     hasMore: Boolean(result.has_more),
     nextCursor: result.response_metadata?.next_cursor || null
   });
