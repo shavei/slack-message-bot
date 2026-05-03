@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSlackBotConfig } from "@/lib/config";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { listMessages } from "@/lib/messageStore";
 
 export async function GET() {
   const config = getSlackBotConfig();
-  const { data, error } = await supabaseAdmin()
-    .from("messages")
-    .select("id, channel_id, slack_ts, text, sent_at, created_at")
-    .eq("channel_id", config.slackChannelId)
-    .order("sent_at", { ascending: false })
-    .limit(100);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const messages = await listMessages(config.slackChannelId);
 
   return NextResponse.json({
-    messages: (data || []).map((message) => ({
+    messages: messages.map((message) => ({
       id: message.id,
       ts: message.slack_ts,
       text: message.text,
