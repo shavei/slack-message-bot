@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { getOpenAIConfig, getSlackBotConfig } from "@/lib/config";
-import { triageIssue } from "@/lib/aiTriage";
+import { getSlackBotConfig } from "@/lib/config";
+import { triageIssue } from "@/lib/freeTriage";
 import { listIssues, listUntriagedIssues, saveAITriage } from "@/lib/messageStore";
 
 export async function POST() {
-  getOpenAIConfig();
   const config = getSlackBotConfig();
-  const issues = await listUntriagedIssues(config.slackChannelId, 8);
+  const issues = await listUntriagedIssues(config.slackChannelId, 50);
   let triaged = 0;
   const failures = [];
 
   for (const issue of issues) {
     try {
-      const triage = await triageIssue(issue);
+      const triage = triageIssue(issue);
       await saveAITriage(issue.id, triage);
       triaged += 1;
     } catch (error) {
