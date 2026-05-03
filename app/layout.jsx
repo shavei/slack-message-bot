@@ -1,13 +1,13 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Slack Sent Messages",
-  description: "Search messages sent by your Slack user."
+  title: "מרכז באגים מסלאק",
+  description: "מרכז קל לניהול, סיווג ותיקון באגים שמגיעים מסלאק."
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="he" dir="rtl">
       <body>{children}</body>
     </html>
   );
