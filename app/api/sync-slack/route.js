@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
-import { getConfig } from "@/lib/config";
-import { getSession } from "@/lib/session";
+import { getSlackBotConfig } from "@/lib/config";
 import { slackApi } from "@/lib/slack";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "not_connected" }, { status: 401 });
-
-  const config = getConfig();
+  const config = getSlackBotConfig();
   const result = await slackApi("conversations.history", config.slackBotToken, {
     method: "POST",
     body: new URLSearchParams({
       channel: config.slackChannelId,
-      limit: "15"
+      limit: "50"
     })
   });
 
