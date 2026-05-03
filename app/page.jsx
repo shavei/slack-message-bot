@@ -34,11 +34,11 @@ export default function Home() {
   }, []);
 
   const connectionLabel = useMemo(() => {
-    if (!config) return "Checking settings";
-    if (botReady && isConnected) return `${me.user.name || me.user.id} connected; bot sync ready`;
-    if (botReady) return "Bot sync ready";
-    return "Missing bot sync environment variables";
-  }, [botReady, config, isConnected, me]);
+    if (!config) return "Checking";
+    if (botReady && isConnected) return "Bot ready + user connected";
+    if (botReady) return "Bot ready";
+    return "Setup needed";
+  }, [botReady, config, isConnected]);
 
   async function loadMessages(nextQuery = query) {
     setBusy(true);
@@ -67,7 +67,7 @@ export default function Home() {
     try {
       const data = await getJson("/api/synced-messages");
       setMessages(data.messages);
-      setSummary(`${data.messages.length} synced Slack messages loaded from Supabase.`);
+      setSummary(`${data.messages.length} synced messages loaded.`);
     } catch (error) {
       setSummary(error.message);
     } finally {
@@ -110,34 +110,34 @@ export default function Home() {
       <section className="topbar">
         <div>
           <p className="eyebrow">Slack archive</p>
-          <h1>{view === "synced" ? "Synced channel" : "Your sent messages"}</h1>
+          <h1>{view === "synced" ? "Synced channel" : "Sent messages"}</h1>
         </div>
-        <div className="connection">{connectionLabel}</div>
+        <div className={`status-pill ${botReady ? "ready" : "warn"}`}>{connectionLabel}</div>
       </section>
 
       <section className="controls">
         <form className="search-row" onSubmit={submitSearch}>
-          <label htmlFor="query">Filter</label>
+          <label htmlFor="query">Search</label>
           <input
             id="query"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="words, in:#channel, after:2026-01-01"
+            placeholder="Filter your sent Slack messages"
           />
           <button type="submit" disabled={!isConnected || busy}>
-            Search My Sent
+            Search Mine
           </button>
         </form>
         <div className="toolbar">
-          <button type="button" disabled={!botReady || busy || syncing} onClick={syncSlack}>
-            Refresh Chat
+          <button className="primary" type="button" disabled={!botReady || busy || syncing} onClick={syncSlack}>
+            {syncing ? "Refreshing..." : "Refresh Chat"}
           </button>
           <button type="button" disabled={!botReady || busy || syncing} onClick={loadSyncedMessages}>
             View Synced
           </button>
-          <a className="button" aria-disabled={!config?.configured} href="/api/slack/start">
-            Connect Slack
+          <a className="button ghost" aria-disabled={!config?.configured} href="/api/slack/start">
+            Connect User
           </a>
           <button type="button" disabled={!isConnected || busy} onClick={disconnect}>
             Disconnect
@@ -145,20 +145,23 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="summary">{summary}</section>
+      <section className="summary">
+        <span>{summary}</span>
+        <span className="count-badge">{messages.length} messages</span>
+      </section>
 
       <section className="message-list">
         {messages.length === 0 ? (
           <div className="empty">
             {view === "synced"
-              ? "Click Refresh Chat to sync Slack channel messages into Supabase."
-              : "Slack messages will appear here after you connect."}
+              ? "Click Refresh Chat to sync Slack channel messages."
+              : "Connect Slack user search to see your sent messages."}
           </div>
         ) : (
           messages.map((message) => (
             <article className="message-card" key={`${message.channel.id}-${message.ts}`}>
               <div className="message-meta">
-                <span className="channel">#{message.channel.name}</span>
+                <span className="channel">{message.channel.name}</span>
                 <time dateTime={message.datetime || ""}>{formatDate(message.datetime)}</time>
               </div>
               <p className="message-text">{message.text || "(empty message)"}</p>
