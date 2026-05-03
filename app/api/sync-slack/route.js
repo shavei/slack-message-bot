@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSlackBotConfig } from "@/lib/config";
+import { findExistingTimestamps, insertMessages } from "@/lib/messageStore";
 import { slackApi } from "@/lib/slack";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST() {
   const config = getSlackBotConfig();
@@ -29,10 +29,7 @@ export async function POST() {
       sent_at: slackTimestampToIso(message.ts)
     }));
 
-  if (newMessages.length > 0) {
-    const { error } = await supabaseAdmin().from("messages").insert(newMessages);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  await insertMessages(newMessages);
 
   return NextResponse.json({
     scanned: messages.length,
@@ -41,19 +38,6 @@ export async function POST() {
     hasMore: Boolean(result.has_more),
     nextCursor: result.response_metadata?.next_cursor || null
   });
-}
-
-async function findExistingTimestamps(channelId, timestamps) {
-  if (timestamps.length === 0) return new Set();
-
-  const { data, error } = await supabaseAdmin()
-    .from("messages")
-    .select("slack_ts")
-    .eq("channel_id", channelId)
-    .in("slack_ts", timestamps);
-
-  if (error) throw new Error(error.message);
-  return new Set((data || []).map((row) => row.slack_ts));
 }
 
 function slackTimestampToIso(ts) {
