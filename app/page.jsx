@@ -10,34 +10,39 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState("synced");
 
   const isConnected = Boolean(me?.user?.id);
+  const botReady = Boolean(config?.botConfigured);
 
   useEffect(() => {
     async function load() {
       const configData = await getJson("/api/config");
       setConfig(configData);
 
-      const meData = await getJson("/api/me", true);
-      if (meData?.user) {
-        setMe(meData);
-        await loadMessages("");
+      if (configData.botConfigured) {
+        await loadSyncedMessages();
       } else {
-        setSummary("Connect Slack to read messages sent by your own Slack user account.");
+        setSummary(`Missing bot sync settings: ${configData.missingBot.join(", ")}`);
       }
+
+      const meData = await getJson("/api/me", true);
+      if (meData?.user) setMe(meData);
     }
 
     load().catch((error) => setSummary(error.message));
   }, []);
 
   const connectionLabel = useMemo(() => {
-    if (!config?.configured) return "Missing environment variables";
-    if (!isConnected) return "Not connected";
-    return `${me.user.name || me.user.id} in ${me.team?.name || me.team?.id}`;
-  }, [config, isConnected, me]);
+    if (!config) return "Checking settings";
+    if (botReady && isConnected) return `${me.user.name || me.user.id} connected; bot sync ready`;
+    if (botReady) return "Bot sync ready";
+    return "Missing bot sync environment variables";
+  }, [botReady, config, isConnected, me]);
 
   async function loadMessages(nextQuery = query) {
     setBusy(true);
+    setView("search");
     setSummary("Loading your sent messages...");
     setMessages([]);
 
@@ -54,19 +59,37 @@ export default function Home() {
     }
   }
 
+  async function loadSyncedMessages() {
+    setBusy(true);
+    setView("synced");
+    setSummary("Loading synced Slack chat...");
+
+    try {
+      const data = await getJson("/api/synced-messages");
+      setMessages(data.messages);
+      setSummary(`${data.messages.length} synced Slack messages loaded from Supabase.`);
+    } catch (error) {
+      setSummary(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disconnect() {
     await fetch("/api/logout", { method: "POST" });
     setMe(null);
-    setMessages([]);
-    setSummary("Disconnected from Slack.");
+    setSummary("Disconnected from Slack user search.");
   }
 
   async function syncSlack() {
     setSyncing(true);
+    setView("synced");
     setSummary("Refreshing Slack chat into Supabase...");
 
     try {
       const result = await postJson("/api/sync-slack");
+      const data = await getJson("/api/synced-messages");
+      setMessages(data.messages);
       setSummary(
         `Refresh complete: scanned ${result.scanned}, saved ${result.inserted}, skipped ${result.skipped}.`
       );
@@ -87,7 +110,7 @@ export default function Home() {
       <section className="topbar">
         <div>
           <p className="eyebrow">Slack archive</p>
-          <h1>Your sent messages</h1>
+          <h1>{view === "synced" ? "Synced channel" : "Your sent messages"}</h1>
         </div>
         <div className="connection">{connectionLabel}</div>
       </section>
@@ -103,19 +126,19 @@ export default function Home() {
             placeholder="words, in:#channel, after:2026-01-01"
           />
           <button type="submit" disabled={!isConnected || busy}>
-            Search
+            Search My Sent
           </button>
         </form>
         <div className="toolbar">
+          <button type="button" disabled={!botReady || busy || syncing} onClick={syncSlack}>
+            Refresh Chat
+          </button>
+          <button type="button" disabled={!botReady || busy || syncing} onClick={loadSyncedMessages}>
+            View Synced
+          </button>
           <a className="button" aria-disabled={!config?.configured} href="/api/slack/start">
             Connect Slack
           </a>
-          <button type="button" disabled={!isConnected || busy} onClick={() => loadMessages()}>
-            Refresh
-          </button>
-          <button type="button" disabled={!isConnected || busy || syncing} onClick={syncSlack}>
-            Refresh Chat
-          </button>
           <button type="button" disabled={!isConnected || busy} onClick={disconnect}>
             Disconnect
           </button>
@@ -126,7 +149,11 @@ export default function Home() {
 
       <section className="message-list">
         {messages.length === 0 ? (
-          <div className="empty">Slack messages will appear here after you connect.</div>
+          <div className="empty">
+            {view === "synced"
+              ? "Click Refresh Chat to sync Slack channel messages into Supabase."
+              : "Slack messages will appear here after you connect."}
+          </div>
         ) : (
           messages.map((message) => (
             <article className="message-card" key={`${message.channel.id}-${message.ts}`}>
