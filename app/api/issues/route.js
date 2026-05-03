@@ -27,6 +27,12 @@ function formatIssue(issue) {
     severity: issue.severity,
     status: issue.status,
     suggestedFix: issue.suggested_fix,
+    aiSummary: issue.ai_summary,
+    reproductionSteps: issue.reproduction_steps || [],
+    likelyArea: issue.likely_area,
+    openQuestions: issue.open_questions || [],
+    aiConfidence: Number(issue.ai_confidence || 0),
+    triagedAt: issue.triaged_at,
     createdAt: issue.created_at,
     updatedAt: issue.updated_at
   };
